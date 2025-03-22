@@ -6,8 +6,18 @@ from PIL import Image
 import torch
 from collections import deque, Counter
 
-# Load model and processor
-model_name = "trpakov/vit-face-expression"
+# Allow the user to choose a model at runtime
+print("Select an emotion detection model:")
+print("1 - ViT (trpakov/vit-face-expression)")
+print("2 - ResNet (dima806/facial_emotions_image_detection)")
+choice = input("Enter model number (1 or 2): ").strip()
+
+# Load the chosen model and processor
+if choice == "2":
+    model_name = "dima806/facial_emotions_image_detection"
+else:
+    model_name = "trpakov/vit-face-expression"  # Default model
+
 processor = AutoImageProcessor.from_pretrained(model_name)
 model = ViTForImageClassification.from_pretrained(model_name)
 
