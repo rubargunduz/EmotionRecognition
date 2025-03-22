@@ -8,13 +8,16 @@ from collections import deque, Counter
 
 # Allow the user to choose a model at runtime
 print("Select an emotion detection model:")
-print("1 - ViT (trpakov/vit-face-expression)")
-print("2 - ResNet (dima806/facial_emotions_image_detection)")
-choice = input("Enter model number (1 or 2): ").strip()
+print("1 - trpakov/vit-face-expression")
+print("2 - dima806/facial_emotions_image_detection")
+print("3 - motheecreator/vit-Facial-Expression-Recognition")
+choice = input("Enter model number: ").strip()
 
 # Load the chosen model and processor
 if choice == "2":
     model_name = "dima806/facial_emotions_image_detection"
+elif choice == "3":
+    model_name = "motheecreator/vit-Facial-Expression-Recognition"
 else:
     model_name = "trpakov/vit-face-expression"  # Default model
 
