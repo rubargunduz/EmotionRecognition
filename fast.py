@@ -16,6 +16,7 @@ choice = input("Enter model number: ").strip()
 # Load the chosen model and processor
 if choice == "2":
     model_name = "dima806/facial_emotions_image_detection"
+    
 elif choice == "3":
     model_name = "motheecreator/vit-Facial-Expression-Recognition"
 else:
@@ -45,7 +46,42 @@ all_emotions = list(model.config.id2label.values())
 def get_emotion_distribution():
     counter = Counter(emotion_history)
     total = sum(counter.values())
+    print(f"Emotion counter: {counter}")  # Debugging print statement
     return {emotion: (counter[emotion] / total * 100) if total > 0 else 0 for emotion in all_emotions}
+
+# Stress Score Calculation
+def calculate_stress_score(emotion_distribution):
+    # Stress formula: S = w1 * P_Angry + w2 * P_Fear + w3 * P_Sad + w4 * P_Disgust - w5 * P_Happy
+    w1, w2, w3, w4, w5 = 1.0, 0.8, 0.7, 0.6, 0.5
+    # Get probability for each emotion, defaulting to 0 if not found in distribution
+    P_Angry = emotion_distribution.get('anger', 0)
+    P_Fear = emotion_distribution.get('fear', 0)
+    P_Sad = emotion_distribution.get('sad', 0)
+    P_Disgust = emotion_distribution.get('disgust', 0)
+    P_Happy = emotion_distribution.get('happy', 0)
+    
+    print(f"Calculating Stress Score with: P_Angry={P_Angry}, P_Fear={P_Fear}, P_Sad={P_Sad}, P_Disgust={P_Disgust}, P_Happy={P_Happy}")
+    
+    S = w1 * P_Angry + w2 * P_Fear + w3 * P_Sad + w4 * P_Disgust - w5 * P_Happy
+    print(f"Stress Score Calculation: {S}")
+    return S
+
+# Tiredness Score Calculation
+def calculate_tiredness_score(emotion_distribution):
+    # Tiredness formula: T = v1 * P_Sad + v2 * P_Neutral - v3 * P_Happy - v4 * P_Surprise
+    v1, v2, v3, v4 = 1.0, 0.8, 0.6, 0.5
+    # Get probability for each emotion, defaulting to 0 if not found in distribution
+    P_Sad = emotion_distribution.get('sad', 0)
+    P_Neutral = emotion_distribution.get('neutral', 0)
+    P_Happy = emotion_distribution.get('happy', 0)
+    P_Surprise = emotion_distribution.get('surprise', 0)
+    
+    print(f"Calculating Tiredness Score with: P_Sad={P_Sad}, P_Neutral={P_Neutral}, P_Happy={P_Happy}, P_Surprise={P_Surprise}")
+    
+    T = v1 * P_Sad + v2 * P_Neutral - v3 * P_Happy - v4 * P_Surprise
+    print(f"Tiredness Score Calculation: {T}")
+    return T
+
 
 # Thread function to continuously detect faces on a downscaled frame
 def process_frame():
@@ -111,6 +147,7 @@ while True:
     
     # Display emotion distribution on the frame
     distribution = get_emotion_distribution()
+    print(f"Emotion distribution: {distribution}")  # Debugging print statement
     y_offset = 20
     cv2.putText(frame, "Mood", (10, y_offset),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -119,6 +156,17 @@ while True:
         text = f"{percentage:.0f}% {emotion}"
         cv2.putText(frame, text, (10, y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # Calculate and display Stress and Tiredness Scores
+    stress_score = calculate_stress_score(distribution)
+    tiredness_score = calculate_tiredness_score(distribution)
+    
+    print(f"Stress Score: {stress_score}, Tiredness Score: {tiredness_score}")  # Debugging print statement
+    
+    cv2.putText(frame, f"Stress: {stress_score:.2f}", (10, y_offset + 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    cv2.putText(frame, f"Tiredness: {tiredness_score:.2f}", (10, y_offset + 70),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
     cv2.imshow('Optimized Face Emotion Recognition', frame)
     

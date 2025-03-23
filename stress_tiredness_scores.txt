@@ -1,0 +1,26 @@
+Stress Score (S)
+
+A weighted sum based on the emotional states associated with stress:
+
+S = w1 × P_Angry + w2 × P_Fear + w3 × P_Sad + w4 × P_Disgust − w5 × P_Happy
+
+where:
+- P_X represents the probability (distribution percentage) of emotion X.
+- Weights (w) determine the importance of each emotion. Typical values:
+  - w1 = 1.0 (Angry)
+  - w2 = 0.8 (Fear)
+  - w3 = 0.7 (Sad)
+  - w4 = 0.6 (Disgust)
+  - w5 = 0.5 (Happy, subtracting because happiness reduces stress)
+
+Tiredness Score (T)
+
+A similar approach for tiredness:
+
+T = v1 × P_Sad + v2 × P_Neutral − v3 × P_Happy − v4 × P_Surprise
+
+where:
+- v1 = 1.0 (Sad)
+- v2 = 0.8 (Neutral)
+- v3 = 0.6 (Happy, subtracted)
+- v4 = 0.5 (Surprise, subtracted)
