@@ -5,6 +5,8 @@ from transformers import AutoImageProcessor, ViTForImageClassification
 from PIL import Image
 import torch
 from collections import deque, Counter
+import datetime
+import time  # For tracking time intervals
 
 # Allow the user to choose a model at runtime
 print("Select an emotion detection model:")
@@ -16,7 +18,6 @@ choice = input("Enter model number: ").strip()
 # Load the chosen model and processor
 if choice == "2":
     model_name = "dima806/facial_emotions_image_detection"
-    
 elif choice == "3":
     model_name = "motheecreator/vit-Facial-Expression-Recognition"
 else:
@@ -51,9 +52,7 @@ def get_emotion_distribution():
 
 # Stress Score Calculation
 def calculate_stress_score(emotion_distribution):
-    # Stress formula: S = w1 * P_Angry + w2 * P_Fear + w3 * P_Sad + w4 * P_Disgust - w5 * P_Happy
     w1, w2, w3, w4, w5 = 1.0, 0.8, 0.7, 0.6, 0.5
-    # Get probability for each emotion, defaulting to 0 if not found in distribution
     P_Angry = emotion_distribution.get('anger', 0)
     P_Fear = emotion_distribution.get('fear', 0)
     P_Sad = emotion_distribution.get('sad', 0)
@@ -61,27 +60,22 @@ def calculate_stress_score(emotion_distribution):
     P_Happy = emotion_distribution.get('happy', 0)
     
     print(f"Calculating Stress Score with: P_Angry={P_Angry}, P_Fear={P_Fear}, P_Sad={P_Sad}, P_Disgust={P_Disgust}, P_Happy={P_Happy}")
-    
     S = w1 * P_Angry + w2 * P_Fear + w3 * P_Sad + w4 * P_Disgust - w5 * P_Happy
     print(f"Stress Score Calculation: {S}")
     return S
 
 # Tiredness Score Calculation
 def calculate_tiredness_score(emotion_distribution):
-    # Tiredness formula: T = v1 * P_Sad + v2 * P_Neutral - v3 * P_Happy - v4 * P_Surprise
     v1, v2, v3, v4 = 1.0, 0.8, 0.6, 0.5
-    # Get probability for each emotion, defaulting to 0 if not found in distribution
     P_Sad = emotion_distribution.get('sad', 0)
     P_Neutral = emotion_distribution.get('neutral', 0)
     P_Happy = emotion_distribution.get('happy', 0)
     P_Surprise = emotion_distribution.get('surprise', 0)
     
     print(f"Calculating Tiredness Score with: P_Sad={P_Sad}, P_Neutral={P_Neutral}, P_Happy={P_Happy}, P_Surprise={P_Surprise}")
-    
     T = v1 * P_Sad + v2 * P_Neutral - v3 * P_Happy - v4 * P_Surprise
     print(f"Tiredness Score Calculation: {T}")
     return T
-
 
 # Thread function to continuously detect faces on a downscaled frame
 def process_frame():
@@ -90,19 +84,24 @@ def process_frame():
         with frame_lock:
             if global_frame is None:
                 continue
-            # Work on a copy to avoid race conditions
             frame_copy = global_frame.copy()
-        # Downscale for faster processing (50% of original size)
         small_frame = cv2.resize(frame_copy, (0, 0), fx=0.5, fy=0.5)
         rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-        # Detect faces using the HOG-based model
         small_face_locations = face_recognition.face_locations(rgb_small_frame, model='hog')
-        # Scale the detected coordinates back to the original frame size
         face_locations = [(top * 2, right * 2, bottom * 2, left * 2) for (top, right, bottom, left) in small_face_locations]
 
 # Start the face detection thread
 detection_thread = threading.Thread(target=process_frame, daemon=True)
 detection_thread.start()
+
+# Set up the log file and write header if file is empty
+log_file = 'emotion_history.csv'
+with open(log_file, 'a') as f:
+    if f.tell() == 0:
+        f.write("timestamp,stress_score,tiredness_score\n")
+
+# Record last logging time (initialize to current time)
+last_log_time = time.time()
 
 while True:
     ret, frame = video_capture.read()
@@ -110,27 +109,21 @@ while True:
         break
 
     frame_count += 1
-    # Update the global frame for the detection thread every 3rd frame
     if frame_count % 3 == 0:
         with frame_lock:
             global_frame = frame.copy()
 
-    # Make a local copy of face_locations to prevent race conditions
     current_face_locations = face_locations.copy()
     faces = []
-    # Extract each face region for emotion recognition
     for (top, right, bottom, left) in current_face_locations:
         face_image = frame[top:bottom, left:right]
-        # Resize face image to the expected input size for the model (224x224)
         try:
             face_resized = cv2.resize(face_image, (224, 224))
         except Exception:
-            continue  # Skip faces that may be too small or cause errors
-        # Convert to PIL Image (and to RGB) for the processor
+            continue
         face_pil = Image.fromarray(cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB))
         faces.append(face_pil)
     
-    # If faces are detected, run emotion recognition
     if faces:
         inputs = processor(images=faces, return_tensors="pt").to(device)
         with torch.no_grad():
@@ -138,16 +131,14 @@ while True:
         predictions = outputs.logits.argmax(-1).cpu().numpy()
         emotions = [model.config.id2label[pred] for pred in predictions]
         
-        # Annotate each detected face with a bounding box and the emotion label
         for (top, right, bottom, left), emotion in zip(current_face_locations, emotions):
             emotion_history.append(emotion)
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(frame, emotion, (left, top - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     
-    # Display emotion distribution on the frame
     distribution = get_emotion_distribution()
-    print(f"Emotion distribution: {distribution}")  # Debugging print statement
+    print(f"Emotion distribution: {distribution}")
     y_offset = 20
     cv2.putText(frame, "Mood", (10, y_offset),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -157,22 +148,29 @@ while True:
         cv2.putText(frame, text, (10, y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-    # Calculate and display Stress and Tiredness Scores
+    # Calculate Stress and Tiredness Scores
     stress_score = calculate_stress_score(distribution)
     tiredness_score = calculate_tiredness_score(distribution)
     
-    print(f"Stress Score: {stress_score}, Tiredness Score: {tiredness_score}")  # Debugging print statement
+    print(f"Stress Score: {stress_score}, Tiredness Score: {tiredness_score}")
     
     cv2.putText(frame, f"Stress: {stress_score:.2f}", (10, y_offset + 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     cv2.putText(frame, f"Tiredness: {tiredness_score:.2f}", (10, y_offset + 70),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     
+    # Log the scores only every 5 seconds
+    current_time_sec = time.time()
+    if current_time_sec - last_log_time >= 5:
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, 'a') as f:
+            f.write(f"{current_time},{stress_score:.2f},{tiredness_score:.2f}\n")
+        last_log_time = current_time_sec
+    
     cv2.imshow('Optimized Face Emotion Recognition', frame)
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Release resources
 video_capture.release()
 cv2.destroyAllWindows()
