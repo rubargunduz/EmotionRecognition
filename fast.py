@@ -7,13 +7,21 @@ import torch
 from collections import deque, Counter
 import datetime
 import time  # For tracking time intervals
+import argparse
 
-# Allow the user to choose a model at runtime
-print("Select an emotion detection model:")
-print("1 - trpakov/vit-face-expression")
-print("2 - dima806/facial_emotions_image_detection")
-print("3 - motheecreator/vit-Facial-Expression-Recognition")
-choice = input("Enter model number: ").strip()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', choices=['1','2','3'])
+args = parser.parse_args()
+
+if args.model:
+    choice = args.model
+else:
+    print("Select an emotion detection model:")
+    print("1 - trpakov/vit-face-expression")
+    print("2 - dima806/facial_emotions_image_detection")
+    print("3 - motheecreator/vit-Facial-Expression-Recognition")
+    choice = input("Enter model number: ").strip()
 
 # Load the chosen model and processor
 if choice == "2":
