@@ -5,10 +5,11 @@ import webbrowser
 import subprocess
 import csv
 
-# For inline image prediction
+# For inline image prediction and face detection
 from transformers import AutoImageProcessor, ViTForImageClassification
-from PIL import Image
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 import torch
+import face_recognition
 
 # Global model choices and state
 MODEL_CHOICES = {
@@ -18,73 +19,103 @@ MODEL_CHOICES = {
 }
 current_choice = '3'
 
+# Launch external live recognition script
 def start_live():
-    cmd = [sys.executable, 'fast.py']  # no --model flag here
+    cmd = [sys.executable, 'fast.py']
     try:
-        # launch and immediately feed it the choice
-        p = subprocess.Popen(cmd,
-                             stdin=subprocess.PIPE,
-                             text=True)
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, text=True)
         p.communicate(current_choice + '\n')
     except Exception as e:
         messagebox.showerror("Error", f"Failed to start live recognition:\n{e}")
 
+# Load picture, detect faces, predict emotions, and display annotated image
 def load_picture():
     path = filedialog.askopenfilename(
         filetypes=[("Image files", "*.jpg *.jpeg *.png")]
     )
     if not path:
         return
-    # Inline prediction instead of external script
     model_name = MODEL_CHOICES[current_choice]
     try:
+        # Load model and processor
         processor = AutoImageProcessor.from_pretrained(model_name)
         model = ViTForImageClassification.from_pretrained(model_name)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model.to(device)
-        image = Image.open(path).convert("RGB")
-        inputs = processor(images=image, return_tensors="pt").to(device)
-        with torch.no_grad():
-            outputs = model(**inputs)
-        pred_id = outputs.logits.argmax(-1).item()
-        label = model.config.id2label[pred_id]
-        messagebox.showinfo("Prediction", f"Predicted Emotion: {label}")
+
+        # Load image
+        pil_image = Image.open(path).convert("RGB")
+        image_array = face_recognition.load_image_file(path)
+        # Detect faces
+        locations = face_recognition.face_locations(image_array, model='hog')
+        if not locations:
+            messagebox.showinfo("No Face Detected", "Could not find any faces in the image.")
+            return
+
+        # Prepare annotation
+        draw = ImageDraw.Draw(pil_image)
+        
+        font = ImageFont.load_default(20)
+
+        # Predict emotion for each detected face
+        for (top, right, bottom, left) in locations:
+            # Crop and resize
+            face = pil_image.crop((left, top, right, bottom)).resize((224, 224))
+            inputs = processor(images=face, return_tensors="pt").to(device)
+            with torch.no_grad():
+                outputs = model(**inputs)
+            pred = outputs.logits.argmax(-1).item()
+            label = model.config.id2label[pred]
+
+            # Draw rectangle and label
+            draw.rectangle(((left, top), (right, bottom)), outline="green", width=3)
+            text_pos = (left, top - 25 if top - 25 > 0 else top + 5)
+            draw.text(text_pos, label, fill="green", font=font)
+
+        # Display annotated image
+        win = tk.Toplevel(root)
+        win.title(f"Predicted Emotions")
+        # Resize for display
+        disp = pil_image.copy()
+        disp.thumbnail((600, 600))
+        photo = ImageTk.PhotoImage(disp)
+        lbl = ttk.Label(win, image=photo)
+        lbl.image = photo
+        lbl.pack(padx=10, pady=10)
+
+        # Also show a summary messagebox
+        messagebox.showinfo("Prediction", "Emotions predicted and displayed on image window.")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to predict emotion:\n{e}")
 
+# View historical logs
 def view_logs():
     win = tk.Toplevel(root)
     win.title("Emotion Logs")
     win.geometry('600x400')
 
-    # Set up treeview
     columns = ('timestamp', 'stress', 'tiredness')
     tree = ttk.Treeview(win, columns=columns, show='headings')
-    tree.heading('timestamp', text='Timestamp')
-    tree.heading('stress', text='Stress Score')
-    tree.heading('tiredness', text='Tiredness Score')
-    tree.column('timestamp', width=200)
-    tree.column('stress', width=100, anchor='center')
-    tree.column('tiredness', width=120, anchor='center')
+    for col, width in zip(columns, (200, 100, 120)):
+        tree.heading(col, text=col.replace('_', ' ').title())
+        tree.column(col, width=width, anchor='center')
 
-    # Add vertical scrollbar
     vsb = ttk.Scrollbar(win, orient='vertical', command=tree.yview)
     tree.configure(yscroll=vsb.set)
     vsb.pack(side='right', fill='y')
     tree.pack(expand=True, fill='both')
 
-    # Load CSV content
     try:
         with open('emotion_history.csv', newline='') as csvfile:
             reader = csv.reader(csvfile)
-            header = next(reader, None)  # skip header
+            next(reader, None)
             for row in reader:
                 if len(row) >= 3:
-                    tree.insert('', 'end', values=(row[0], row[1], row[2]))
+                    tree.insert('', 'end', values=row[:3])
     except FileNotFoundError:
         messagebox.showinfo("Logs", "No logs found.")
 
-
+# Model selection window
 def select_model():
     win = tk.Toplevel(root)
     win.title("Select Model")
@@ -97,35 +128,30 @@ def select_model():
         win.destroy()
     ttk.Button(win, text="Apply", command=apply_choice).pack(pady=10)
 
-# Main GUI setup
+# Build main GUI
 def build_gui():
     global root
     root = tk.Tk()
     root.title("Emotion Recognition")
     root.geometry('480x360')
 
-    # Greeting
     ttk.Label(root, text="Emotion Recognition", font=('Helvetica', 20, 'bold')).pack(pady=20)
 
-    # Action buttons
-    btn_frame = ttk.Frame(root)
-    btn_frame.pack(pady=10)
-    actions = [
+    btns = [
         ("Start Live Recognition", start_live),
         ("Load Picture", load_picture),
         ("View Logs", view_logs),
         ("Select Model", select_model)
     ]
-    for txt, cmd in actions:
-        ttk.Button(btn_frame, text=txt, width=30, command=cmd).pack(pady=5)
+    frame = ttk.Frame(root)
+    frame.pack(pady=10)
+    for (txt, cmd) in btns:
+        ttk.Button(frame, text=txt, width=30, command=cmd).pack(pady=5)
 
-    # Bottom controls
     bottom = ttk.Frame(root)
     bottom.pack(side='bottom', fill='x', pady=15)
     ttk.Button(bottom, text="Quit", command=root.quit).pack(side='left', padx=20)
-    ttk.Button(
-        bottom, text="GitHub", command=lambda: webbrowser.open('https://github.com/yourrepo')
-    ).pack(side='right', padx=20)
+    ttk.Button(bottom, text="GitHub", command=lambda: webbrowser.open('https://github.com/yourrepo')).pack(side='right', padx=20)
 
     root.mainloop()
 
