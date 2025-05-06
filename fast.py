@@ -6,8 +6,32 @@ from PIL import Image
 import torch
 from collections import deque, Counter
 import datetime
-import time  # For tracking time intervals
+import time
 import argparse
+import platform
+import subprocess
+
+if platform.system() == 'Windows':
+    import winsound
+    def sound_alert():
+        winsound.Beep(1000, 500)  # 1 kHz for 0.5 s
+elif platform.system() == 'Darwin':
+    def sound_alert():
+        # play the default "Glass" sound
+        subprocess.call(['afplay', '/System/Library/Sounds/Glass.aiff'])
+else:
+    def sound_alert():
+        # on many Linux distros this will work if 'beep' is installed
+        try:
+            subprocess.call(['beep', '-f', '1000', '-l', '500'])
+        except FileNotFoundError:
+            # fallback to terminal BEL
+            print('\a', end='', flush=True)
+
+# set your alert threshold (in %)
+TIREDNESS_ALERT_THRESHOLD = 75.0
+# set your stress alert threshold (in %)
+STRESS_ALERT_THRESHOLD = 75.0
 
 
 parser = argparse.ArgumentParser()
@@ -55,7 +79,6 @@ all_emotions = list(model.config.id2label.values())
 def get_emotion_distribution():
     counter = Counter(emotion_history)
     total = sum(counter.values())
-    print(f"Emotion counter: {counter}")  # Debugging print statement
     return {emotion: (counter[emotion] / total * 100) if total > 0 else 0 for emotion in all_emotions}
 
 # Stress Score Calculation
@@ -67,10 +90,9 @@ def calculate_stress_score(emotion_distribution):
     P_Disgust = emotion_distribution.get('disgust', 0)
     P_Happy = emotion_distribution.get('happy', 0)
     
-    print(f"Calculating Stress Score with: P_Angry={P_Angry}, P_Fear={P_Fear}, P_Sad={P_Sad}, P_Disgust={P_Disgust}, P_Happy={P_Happy}")
     S = w1 * P_Angry + w2 * P_Fear + w3 * P_Sad + w4 * P_Disgust - w5 * P_Happy
-    print(f"Stress Score Calculation: {S}")
-    return S
+
+    return max(S, 0)
 
 # Tiredness Score Calculation
 def calculate_tiredness_score(emotion_distribution):
@@ -80,10 +102,9 @@ def calculate_tiredness_score(emotion_distribution):
     P_Happy = emotion_distribution.get('happy', 0)
     P_Surprise = emotion_distribution.get('surprise', 0)
     
-    print(f"Calculating Tiredness Score with: P_Sad={P_Sad}, P_Neutral={P_Neutral}, P_Happy={P_Happy}, P_Surprise={P_Surprise}")
     T = v1 * P_Sad + v2 * P_Neutral - v3 * P_Happy - v4 * P_Surprise
-    print(f"Tiredness Score Calculation: {T}")
-    return T
+
+    return max(T, 0)
 
 # Thread function to continuously detect faces on a downscaled frame
 def process_frame():
@@ -146,7 +167,6 @@ while True:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     
     distribution = get_emotion_distribution()
-    print(f"Emotion distribution: {distribution}")
     y_offset = 20
     cv2.putText(frame, "Mood", (10, y_offset),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -159,8 +179,27 @@ while True:
     # Calculate Stress and Tiredness Scores
     stress_score = calculate_stress_score(distribution)
     tiredness_score = calculate_tiredness_score(distribution)
+
+    if tiredness_score > TIREDNESS_ALERT_THRESHOLD:
+    # draw a big warning on the frame
+        cv2.putText(frame,
+                    "You look tired! Take a break!",
+                    (10, y_offset + 100),
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    0.9, (0, 0, 255), 2)
+        # fire the alert sound in its own thread so it doesn't block your frame loop
+        threading.Thread(target=sound_alert, daemon=True).start()
     
-    print(f"Stress Score: {stress_score}, Tiredness Score: {tiredness_score}")
+    if stress_score > STRESS_ALERT_THRESHOLD:
+        # overlay a red warning
+        cv2.putText(frame,
+                    "High stress! Take a moment to relax!",
+                    (10, y_offset + 130),
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    0.8, (0, 0, 255), 2)
+        # play alert sound without blocking
+        threading.Thread(target=sound_alert, daemon=True).start()
+
     
     cv2.putText(frame, f"Stress: {stress_score:.2f}", (10, y_offset + 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
