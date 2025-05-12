@@ -15,7 +15,8 @@ import face_recognition
 MODEL_CHOICES = {
     '1': 'trpakov/vit-face-expression',
     '2': 'dima806/facial_emotions_image_detection',
-    '3': 'motheecreator/vit-Facial-Expression-Recognition'
+    '3': 'motheecreator/vit-Facial-Expression-Recognition',
+    '4': 'combined'
 }
 current_choice = '3'
 
@@ -37,11 +38,14 @@ def load_picture():
         return
     model_name = MODEL_CHOICES[current_choice]
     try:
-        # Load model and processor
-        processor = AutoImageProcessor.from_pretrained(model_name)
-        model = ViTForImageClassification.from_pretrained(model_name)
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model.to(device)
+        if current_choice == '4':
+            model_names = list(MODEL_CHOICES.values())[:3]
+            processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
+            models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
+        else:
+            processor = AutoImageProcessor.from_pretrained(model_name)
+            model = ViTForImageClassification.from_pretrained(model_name).to(device)
 
         # Load image
         pil_image = Image.open(path).convert("RGB")
@@ -61,11 +65,21 @@ def load_picture():
         for (top, right, bottom, left) in locations:
             # Crop and resize
             face = pil_image.crop((left, top, right, bottom)).resize((224, 224))
-            inputs = processor(images=face, return_tensors="pt").to(device)
-            with torch.no_grad():
-                outputs = model(**inputs)
-            pred = outputs.logits.argmax(-1).item()
-            label = model.config.id2label[pred]
+            if current_choice == '4':
+                votes = []
+                for proc, mod in zip(processors, models):
+                    inputs = proc(images=face, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        outputs = mod(**inputs)
+                    pred = outputs.logits.argmax(-1).item()
+                    votes.append(mod.config.id2label[pred])
+                label = max(set(votes), key=votes.count)
+            else:
+                inputs = processor(images=face, return_tensors="pt").to(device)
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                pred = outputs.logits.argmax(-1).item()
+                label = model.config.id2label[pred]
 
             # Draw rectangle and label
             draw.rectangle(((left, top), (right, bottom)), outline="green", width=3)
@@ -151,7 +165,7 @@ def build_gui():
     bottom = ttk.Frame(root)
     bottom.pack(side='bottom', fill='x', pady=15)
     ttk.Button(bottom, text="Quit", command=root.quit).pack(side='left', padx=20)
-    ttk.Button(bottom, text="GitHub", command=lambda: webbrowser.open('https://github.com/yourrepo')).pack(side='right', padx=20)
+    ttk.Button(bottom, text="GitHub", command=lambda: webbrowser.open('https://github.com/rubargunduz/EmotionRecognition')).pack(side='right', padx=20)
 
     root.mainloop()
 

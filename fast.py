@@ -35,7 +35,7 @@ STRESS_ALERT_THRESHOLD = 75.0
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', choices=['1','2','3'])
+parser.add_argument('--model', choices=['1','2','3','4'])
 args = parser.parse_args()
 
 if args.model:
@@ -45,23 +45,30 @@ else:
     print("1 - trpakov/vit-face-expression")
     print("2 - dima806/facial_emotions_image_detection")
     print("3 - motheecreator/vit-Facial-Expression-Recognition")
+    print("4 - Combined")
     choice = input("Enter model number: ").strip()
-
-# Load the chosen model and processor
-if choice == "2":
-    model_name = "dima806/facial_emotions_image_detection"
-elif choice == "3":
-    model_name = "motheecreator/vit-Facial-Expression-Recognition"
-else:
-    model_name = "trpakov/vit-face-expression"  # Default model
-
-processor = AutoImageProcessor.from_pretrained(model_name)
-model = ViTForImageClassification.from_pretrained(model_name)
 
 # Select device (using GPU if available)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "mps" if torch.backends.mps.is_available() else device
-model.to(device)
+
+# Load the chosen model and processor
+if choice == "4":
+    model_names = ["trpakov/vit-face-expression", "dima806/facial_emotions_image_detection", "motheecreator/vit-Facial-Expression-Recognition"]
+    processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
+    models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
+    all_emotions = list(set(label for m in models for label in m.config.id2label.values()))
+else:
+    if choice == "2":
+        model_name = "dima806/facial_emotions_image_detection"
+    elif choice == "3":
+        model_name = "motheecreator/vit-Facial-Expression-Recognition"
+    else:
+        model_name = "trpakov/vit-face-expression"  # Default model
+
+    processor = AutoImageProcessor.from_pretrained(model_name)
+    model = ViTForImageClassification.from_pretrained(model_name).to(device)
+    all_emotions = list(model.config.id2label.values())
 
 # Global variables for threading
 face_locations = []    # Shared variable with detected face coordinates
@@ -74,7 +81,6 @@ frame_count = 0
 
 # Emotion history (to track the last 100 detected emotions)
 emotion_history = deque(maxlen=100)
-all_emotions = list(model.config.id2label.values())
 
 def get_emotion_distribution():
     counter = Counter(emotion_history)
@@ -153,12 +159,41 @@ while True:
         face_pil = Image.fromarray(cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB))
         faces.append(face_pil)
     
+    emotions = []
     if faces:
-        inputs = processor(images=faces, return_tensors="pt").to(device)
-        with torch.no_grad():
-            outputs = model(**inputs)
-        predictions = outputs.logits.argmax(-1).cpu().numpy()
-        emotions = [model.config.id2label[pred] for pred in predictions]
+        if choice == "4":
+            for face_pil in faces:
+                votes = []
+                for proc, mod in zip(processors, models):
+                    inputs = proc(images=face_pil, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        outputs = mod(**inputs)
+                    pred = outputs.logits.argmax(-1).item()
+                    votes.append(mod.config.id2label[pred])
+                majority_label = max(set(votes), key=votes.count)
+
+                # Normalize emotion labels
+                label_map = {
+                    'angry': 'anger',
+                    'anger': 'anger',
+                    'fear': 'fear',
+                    'scared': 'fear',
+                    'sadness': 'sad',
+                    'sad': 'sad',
+                    'disgust': 'disgust',
+                    'happy': 'happy',
+                    'happiness': 'happy',
+                    'surprise': 'surprise',
+                    'neutral': 'neutral'
+                }
+                normalized = label_map.get(majority_label.lower(), majority_label.lower())
+                emotions.append(normalized)
+        else:
+            inputs = processor(images=faces, return_tensors="pt").to(device)
+            with torch.no_grad():
+                outputs = model(**inputs)
+            predictions = outputs.logits.argmax(-1).cpu().numpy()
+            emotions = [model.config.id2label[pred] for pred in predictions]
         
         for (top, right, bottom, left), emotion in zip(current_face_locations, emotions):
             emotion_history.append(emotion)
