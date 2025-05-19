@@ -52,12 +52,28 @@ else:
 device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "mps" if torch.backends.mps.is_available() else device
 
+all_emotions = ['anger', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
+# Normalize emotion labels
+label_map = {
+    'angry': 'anger',
+    'anger': 'anger',
+    'fear': 'fear',
+    'scared': 'fear',
+    'sadness': 'sad',
+    'sad': 'sad',
+    'disgust': 'disgust',
+    'happy': 'happy',
+    'happiness': 'happy',
+    'surprise': 'surprise',
+    'neutral': 'neutral'
+}
+
 # Load the chosen model and processor
 if choice == "4":
     model_names = ["trpakov/vit-face-expression", "dima806/facial_emotions_image_detection", "motheecreator/vit-Facial-Expression-Recognition"]
     processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
     models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
-    all_emotions = list(set(label for m in models for label in m.config.id2label.values()))
+
 else:
     if choice == "2":
         model_name = "dima806/facial_emotions_image_detection"
@@ -68,7 +84,6 @@ else:
 
     processor = AutoImageProcessor.from_pretrained(model_name)
     model = ViTForImageClassification.from_pretrained(model_name).to(device)
-    all_emotions = list(model.config.id2label.values())
 
 # Global variables for threading
 face_locations = []    # Shared variable with detected face coordinates
@@ -170,30 +185,26 @@ while True:
                         outputs = mod(**inputs)
                     pred = outputs.logits.argmax(-1).item()
                     votes.append(mod.config.id2label[pred])
-                majority_label = max(set(votes), key=votes.count)
 
-                # Normalize emotion labels
-                label_map = {
-                    'angry': 'anger',
-                    'anger': 'anger',
-                    'fear': 'fear',
-                    'scared': 'fear',
-                    'sadness': 'sad',
-                    'sad': 'sad',
-                    'disgust': 'disgust',
-                    'happy': 'happy',
-                    'happiness': 'happy',
-                    'surprise': 'surprise',
-                    'neutral': 'neutral'
-                }
+                print(votes)
+                for i in range(len(votes)):
+                    votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
+
+                print(votes)
+                majority_label = max(set(votes), key=votes.count)
                 normalized = label_map.get(majority_label.lower(), majority_label.lower())
                 emotions.append(normalized)
+        
         else:
             inputs = processor(images=faces, return_tensors="pt").to(device)
+
             with torch.no_grad():
                 outputs = model(**inputs)
             predictions = outputs.logits.argmax(-1).cpu().numpy()
             emotions = [model.config.id2label[pred] for pred in predictions]
+            
+            emotions = [label_map.get(e.lower(), e.lower()) for e in emotions]
+            print(emotions)
         
         for (top, right, bottom, left), emotion in zip(current_face_locations, emotions):
             emotion_history.append(emotion)

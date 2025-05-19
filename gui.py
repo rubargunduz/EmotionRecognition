@@ -61,6 +61,21 @@ def load_picture():
         
         font = ImageFont.load_default(20)
 
+        # Normalize label similar to combined mode
+        label_map = {
+            'angry': 'anger',
+            'anger': 'anger',
+            'fear': 'fear',
+            'scared': 'fear',
+            'sadness': 'sad',
+            'sad': 'sad',
+            'disgust': 'disgust',
+            'happy': 'happy',
+            'happiness': 'happy',
+            'surprise': 'surprise',
+            'neutral': 'neutral'
+        }
+
         # Predict emotion for each detected face
         for (top, right, bottom, left) in locations:
             # Crop and resize
@@ -73,13 +88,21 @@ def load_picture():
                         outputs = mod(**inputs)
                     pred = outputs.logits.argmax(-1).item()
                     votes.append(mod.config.id2label[pred])
-                label = max(set(votes), key=votes.count)
+
+                print(votes)
+                for i in range(len(votes)):
+                    votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
+
+                print(votes)
+                majority = max(set(votes), key=votes.count)
+                label = label_map.get(majority.lower(), majority.lower())
             else:
                 inputs = processor(images=face, return_tensors="pt").to(device)
                 with torch.no_grad():
                     outputs = model(**inputs)
                 pred = outputs.logits.argmax(-1).item()
                 label = model.config.id2label[pred]
+                label = label_map.get(label.lower(), label.lower())
 
             # Draw rectangle and label
             draw.rectangle(((left, top), (right, bottom)), outline="green", width=3)
