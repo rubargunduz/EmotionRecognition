@@ -33,8 +33,6 @@ Model: motheecreator/vit-Facial-Expression-Recognition
   6: surprise
 
 
-Loading models...
-Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
 
 Evaluating individual models:
 Model 1 (trpakov/vit-face-expression): 74.58% accuracy
@@ -43,3 +41,84 @@ Model 3 (motheecreator/vit-Facial-Expression-Recognition): 84.75% accuracy
 
 Evaluating combined (voting) model:
 Combined model: 77.97% accuracy
+
+
+
+
+Evaluating individual models:
+Model 1 (trpakov/vit-face-expression): 74.58% accuracy
+Model 2 (HardlyHumans/Facial-expression-detection): 72.88% accuracy
+Model 3 (motheecreator/vit-Facial-Expression-Recognition): 84.75% accuracy
+
+Evaluating combined (voting) model:
+Combined model: 88.14% accuracy
+
+
+
+
+
+Evaluating individual models:
+Evaluated 70 images for model.
+Accuracy per emotion:
+  happy: 100.00% (10/10)
+  sad: 50.00% (5/10)
+  fear: 60.00% (6/10)
+  neutral: 90.00% (9/10)
+  surprise: 100.00% (10/10)
+  anger: 90.00% (9/10)
+  disgust: 60.00% (6/10)
+Model 1 (trpakov/vit-face-expression): 78.57% accuracy
+
+
+Evaluated 70 images for model.
+Accuracy per emotion:
+  happy: 0.00% (0/10)
+  sad: 60.00% (6/10)
+  fear: 90.00% (9/10)
+  neutral: 60.00% (6/10)
+  surprise: 80.00% (8/10)
+  anger: 80.00% (8/10)
+  disgust: 100.00% (10/10)
+Model 2 (HardlyHumans/Facial-expression-detection): 67.14% accuracy
+
+
+
+
+Evaluated 70 images for model.
+Accuracy per emotion:
+  happy: 90.00% (9/10)
+  sad: 70.00% (7/10)
+  fear: 70.00% (7/10)
+  neutral: 50.00% (5/10)
+  surprise: 100.00% (10/10)
+  anger: 90.00% (9/10)
+  disgust: 100.00% (10/10)
+Model 3 (motheecreator/vit-Facial-Expression-Recognition): 81.43% accuracy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Evaluating combined (voting) model:
+Evaluated 70 images for combined model.
+Accuracy per emotion:
+  happy: 100.00% (10/10)
+  sad: 70.00% (7/10)
+  fear: 80.00% (8/10)
+  neutral: 60.00% (6/10)
+  surprise: 100.00% (10/10)
+  anger: 90.00% (9/10)
+  disgust: 100.00% (10/10)
+Combined model: 85.71%  

@@ -43,7 +43,7 @@ if args.model:
 else:
     print("Select an emotion detection model:")
     print("1 - trpakov/vit-face-expression")
-    print("2 - dima806/facial_emotions_image_detection")
+    print("2 - HardlyHumans/Facial-expression-detection")
     print("3 - motheecreator/vit-Facial-Expression-Recognition")
     print("4 - Combined")
     choice = input("Enter model number: ").strip()
@@ -65,18 +65,19 @@ label_map = {
     'happy': 'happy',
     'happiness': 'happy',
     'surprise': 'surprise',
-    'neutral': 'neutral'
+    'neutral': 'neutral',
+    'contempt': 'neutral'
 }
 
 # Load the chosen model and processor
 if choice == "4":
-    model_names = ["trpakov/vit-face-expression", "dima806/facial_emotions_image_detection", "motheecreator/vit-Facial-Expression-Recognition"]
+    model_names = ["trpakov/vit-face-expression", "HardlyHumans/Facial-expression-detection", "motheecreator/vit-Facial-Expression-Recognition"]
     processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
     models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
 
 else:
     if choice == "2":
-        model_name = "dima806/facial_emotions_image_detection"
+        model_name = "HardlyHumans/Facial-expression-detection"
     elif choice == "3":
         model_name = "motheecreator/vit-Facial-Expression-Recognition"
     else:

@@ -14,7 +14,7 @@ import face_recognition
 # Global model choices and state
 MODEL_CHOICES = {
     '1': 'trpakov/vit-face-expression',
-    '2': 'dima806/facial_emotions_image_detection',
+    '2': 'HardlyHumans/Facial-expression-detection',
     '3': 'motheecreator/vit-Facial-Expression-Recognition',
     '4': 'combined'
 }
@@ -73,7 +73,8 @@ def load_picture():
             'happy': 'happy',
             'happiness': 'happy',
             'surprise': 'surprise',
-            'neutral': 'neutral'
+            'neutral': 'neutral',
+            'contempt': 'neutral'
         }
 
         # Predict emotion for each detected face
