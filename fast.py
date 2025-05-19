@@ -10,6 +10,7 @@ import time
 import argparse
 import platform
 import subprocess
+from utils import *
 
 if platform.system() == 'Windows':
     import winsound
@@ -53,21 +54,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "mps" if torch.backends.mps.is_available() else device
 
 all_emotions = ['anger', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-# Normalize emotion labels
-label_map = {
-    'angry': 'anger',
-    'anger': 'anger',
-    'fear': 'fear',
-    'scared': 'fear',
-    'sadness': 'sad',
-    'sad': 'sad',
-    'disgust': 'disgust',
-    'happy': 'happy',
-    'happiness': 'happy',
-    'surprise': 'surprise',
-    'neutral': 'neutral',
-    'contempt': 'neutral'
-}
+
 
 # Load the chosen model and processor
 if choice == "4":
@@ -192,7 +179,7 @@ while True:
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
 
                 print(votes)
-                majority_label = max(set(votes), key=votes.count)
+                majority_label = get_weighted_majority_vote(votes)
                 normalized = label_map.get(majority_label.lower(), majority_label.lower())
                 emotions.append(normalized)
         

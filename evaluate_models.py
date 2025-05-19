@@ -1,10 +1,12 @@
 import os
-# Supports common formats: JPEG, PNG, WEBP, AVIF (if Pillow compiled with libavif/libwebp)
 from PIL import Image
 from tqdm import tqdm
 from transformers import AutoImageProcessor, ViTForImageClassification
 import torch
 import face_recognition
+from sklearn.metrics import confusion_matrix
+import numpy as np
+from utils import *
 
 # Models
 MODELS = {
@@ -13,22 +15,7 @@ MODELS = {
     '3': 'motheecreator/vit-Facial-Expression-Recognition',
 }
 
-# Normalize labels
-label_map = {
-    'angry': 'anger',
-    'anger': 'anger',
-    'fear': 'fear',
-    'scared': 'fear',
-    'sadness': 'sad',
-    'sad': 'sad',
-    'disgust': 'disgust',
-    'happy': 'happy',
-    'happiness': 'happy',
-    'surprise': 'surprise',
-    'suprise': 'surprise',
-    'neutral': 'neutral',
-    'contempt': 'neutral'
-}
+
 
 def load_face(image_path):
     try:
@@ -52,7 +39,6 @@ def evaluate_model(processor, model, dataset_dir):
         if not os.path.isdir(folder):
             continue
         true_label = label_map.get(label.lower(), label.lower())
-        folder = os.path.join(dataset_dir, label)
         for fname in os.listdir(folder):
             path = os.path.join(folder, fname)
             face = load_face(path)
@@ -75,31 +61,71 @@ def evaluate_model(processor, model, dataset_dir):
     for label, (corr, tot) in per_label_stats.items():
         acc = (corr / tot * 100) if tot > 0 else 0
         print(f"  {label}: {acc:.2f}% ({corr}/{tot})")
-    return correct / total * 100 if total > 0 else 0
 
-def evaluate_combined(models, processors, dataset_dir):
-    total, correct = 0, 0
-    per_label_stats = {}
+    all_preds = []
+    all_trues = []
     for label in os.listdir(dataset_dir):
         folder = os.path.join(dataset_dir, label)
         if not os.path.isdir(folder):
             continue
         true_label = label_map.get(label.lower(), label.lower())
-        folder = os.path.join(dataset_dir, label)
         for fname in os.listdir(folder):
             path = os.path.join(folder, fname)
             face = load_face(path)
             if face is None:
                 continue
-            votes = []
-            for processor, model in zip(processors, models):
+            inputs = processor(images=face, return_tensors="pt").to(model.device)
+            with torch.no_grad():
+                outputs = model(**inputs)
+            pred = outputs.logits.argmax(-1).item()
+            pred_label = label_map.get(model.config.id2label[pred].lower(), model.config.id2label[pred].lower())
+            all_trues.append(true_label)
+            all_preds.append(pred_label)
+
+    labels_sorted = sorted(set(all_trues + all_preds))
+    cm = confusion_matrix(all_trues, all_preds, labels=labels_sorted)
+    print("\nConfusion Matrix:")
+    print("Labels:", labels_sorted)
+    print(np.array(cm))
+
+    return correct / total * 100 if total > 0 else 0
+
+def get_weighted_majority_vote(emotion_weights, predictions):
+    weighted_vote_counter = {}
+    for i, pred in enumerate(predictions):
+        normalized = label_map.get(pred.lower(), pred.lower())
+        weight = emotion_weights.get(normalized, [0, 0, 0])[i]
+        weighted_vote_counter[normalized] = weighted_vote_counter.get(normalized, 0) + weight
+    return max(weighted_vote_counter, key=weighted_vote_counter.get)
+
+def evaluate_combined(models, processors, dataset_dir):
+    total, correct = 0, 0
+    per_label_stats = {}
+
+    
+
+    for label in os.listdir(dataset_dir):
+        folder = os.path.join(dataset_dir, label)
+        if not os.path.isdir(folder):
+            continue
+        true_label = label_map.get(label.lower(), label.lower())
+        for fname in os.listdir(folder):
+            path = os.path.join(folder, fname)
+            face = load_face(path)
+            if face is None:
+                continue
+
+            predictions = []
+            for i, (processor, model) in enumerate(zip(processors, models)):
                 inputs = processor(images=face, return_tensors="pt").to(model.device)
                 with torch.no_grad():
                     outputs = model(**inputs)
                 pred = outputs.logits.argmax(-1).item()
-                pred_label = model.config.id2label[pred]
-                votes.append(label_map.get(pred_label.lower(), pred_label.lower()))
-            majority = max(set(votes), key=votes.count)
+                pred_label = model.config.id2label[pred].lower()
+                predictions.append(pred_label)
+
+            majority = get_weighted_majority_vote(predictions)
+
             total += 1
             if true_label not in per_label_stats:
                 per_label_stats[true_label] = [0, 0]
@@ -127,10 +153,7 @@ def main(dataset_dir):
         processors[key] = processor
         models[key] = model
 
-    print("\nEvaluating individual models:")
-    for key, model_id in MODELS.items():
-        acc = evaluate_model(processors[key], models[key], dataset_dir)
-        print(f"Model {key} ({model_id}): {acc:.2f}% accuracy")
+    
 
     print("\nEvaluating combined (voting) model:")
     acc = evaluate_combined(list(models.values()), list(processors.values()), dataset_dir)

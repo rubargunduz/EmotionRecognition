@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, ttk
 import webbrowser
 import subprocess
 import csv
+from utils import *
 
 # For inline image prediction and face detection
 from transformers import AutoImageProcessor, ViTForImageClassification
@@ -61,22 +62,6 @@ def load_picture():
         
         font = ImageFont.load_default()
 
-        # Normalize label similar to combined mode
-        label_map = {
-            'angry': 'anger',
-            'anger': 'anger',
-            'fear': 'fear',
-            'scared': 'fear',
-            'sadness': 'sad',
-            'sad': 'sad',
-            'disgust': 'disgust',
-            'happy': 'happy',
-            'happiness': 'happy',
-            'surprise': 'surprise',
-            'neutral': 'neutral',
-            'contempt': 'neutral'
-        }
-
         # Predict emotion for each detected face
         for (top, right, bottom, left) in locations:
             # Crop and resize
@@ -95,7 +80,7 @@ def load_picture():
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
 
                 print(votes)
-                majority = max(set(votes), key=votes.count)
+                majority = get_weighted_majority_vote(votes)
                 label = label_map.get(majority.lower(), majority.lower())
             else:
                 inputs = processor(images=face, return_tensors="pt").to(device)
