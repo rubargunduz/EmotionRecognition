@@ -59,7 +59,7 @@ def load_picture():
         # Prepare annotation
         draw = ImageDraw.Draw(pil_image)
         
-        font = ImageFont.load_default(20)
+        font = ImageFont.load_default()
 
         # Normalize label similar to combined mode
         label_map = {

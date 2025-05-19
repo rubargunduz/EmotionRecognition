@@ -1,1 +1,45 @@
-all_emotions = ['anger', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
+https://huggingface.co/dima806/facial_emotions_image_detection
+
+https://huggingface.co/trpakov/vit-face-expression
+
+https://huggingface.co/mo-thecreator/vit-Facial-Expression-Recognition
+
+
+Model: trpakov/vit-face-expression
+  0: angry
+  1: disgust
+  2: fear
+  3: happy
+  4: neutral
+  5: sad
+  6: surprise
+
+Model: dima806/facial_emotions_image_detection
+  0: sad
+  1: disgust
+  2: angry
+  3: neutral
+  4: fear
+  5: surprise
+  6: happy
+
+Model: motheecreator/vit-Facial-Expression-Recognition
+  0: anger
+  1: disgust
+  2: fear
+  3: happy
+  4: neutral
+  5: sad
+  6: surprise
+
+
+Loading models...
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+
+Evaluating individual models:
+Model 1 (trpakov/vit-face-expression): 74.58% accuracy
+Model 2 (dima806/facial_emotions_image_detection): 52.54% accuracy
+Model 3 (motheecreator/vit-Facial-Expression-Recognition): 84.75% accuracy
+
+Evaluating combined (voting) model:
+Combined model: 77.97% accuracy
