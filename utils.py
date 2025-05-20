@@ -1,3 +1,9 @@
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps" if torch.backends.mps.is_available() else device
+
+
 # Accuracy per emotion per model (manually copied from test results)
 emotion_weights = {
     'happy':    [1.0, 0.0, 0.9],

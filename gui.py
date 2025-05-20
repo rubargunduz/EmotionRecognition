@@ -4,13 +4,11 @@ from tkinter import filedialog, messagebox, ttk
 import webbrowser
 import subprocess
 import csv
-from utils import *
-
-# For inline image prediction and face detection
 from transformers import AutoImageProcessor, ViTForImageClassification
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import torch
 import face_recognition
+from utils import *
 
 # Global model choices and state
 MODEL_CHOICES = {
@@ -39,7 +37,7 @@ def load_picture():
         return
     model_name = MODEL_CHOICES[current_choice]
     try:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+
         if current_choice == '4':
             model_names = list(MODEL_CHOICES.values())[:3]
             processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
@@ -59,13 +57,13 @@ def load_picture():
 
         # Prepare annotation
         draw = ImageDraw.Draw(pil_image)
-        
         font = ImageFont.load_default()
 
         # Predict emotion for each detected face
         for (top, right, bottom, left) in locations:
             # Crop and resize
             face = pil_image.crop((left, top, right, bottom)).resize((224, 224))
+
             if current_choice == '4':
                 votes = []
                 for proc, mod in zip(processors, models):
@@ -80,7 +78,7 @@ def load_picture():
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
 
                 print(votes)
-                majority = get_weighted_majority_vote(votes)
+                majority = get_weighted_majority_vote(votes) # Algorithm that decided on how to choose final label
                 label = label_map.get(majority.lower(), majority.lower())
             else:
                 inputs = processor(images=face, return_tensors="pt").to(device)

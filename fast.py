@@ -29,6 +29,7 @@ else:
             # fallback to terminal BEL
             print('\a', end='', flush=True)
 
+
 # set your alert threshold (in %)
 TIREDNESS_ALERT_THRESHOLD = 75.0
 # set your stress alert threshold (in %)
@@ -49,10 +50,6 @@ else:
     print("4 - Combined")
     choice = input("Enter model number: ").strip()
 
-# Select device (using GPU if available)
-device = "cuda" if torch.cuda.is_available() else "cpu"
-device = "mps" if torch.backends.mps.is_available() else device
-
 all_emotions = ['anger', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 
@@ -61,7 +58,6 @@ if choice == "4":
     model_names = ["trpakov/vit-face-expression", "HardlyHumans/Facial-expression-detection", "motheecreator/vit-Facial-Expression-Recognition"]
     processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
     models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
-
 else:
     if choice == "2":
         model_name = "HardlyHumans/Facial-expression-detection"
@@ -85,6 +81,7 @@ frame_count = 0
 # Emotion history (to track the last 100 detected emotions)
 emotion_history = deque(maxlen=100)
 
+# Calculte the emotion distribution from emotion_history, return % values
 def get_emotion_distribution():
     counter = Counter(emotion_history)
     total = sum(counter.values())
@@ -115,6 +112,7 @@ def calculate_tiredness_score(emotion_distribution):
 
     return max(T, 0)
 
+
 # Thread function to continuously detect faces on a downscaled frame
 def process_frame():
     global global_frame, face_locations
@@ -141,13 +139,14 @@ with open(log_file, 'a') as f:
 # Record last logging time (initialize to current time)
 last_log_time = time.time()
 
+# Main loop
 while True:
     ret, frame = video_capture.read()
     if not ret:
         break
 
     frame_count += 1
-    if frame_count % 3 == 0:
+    if frame_count % 3 == 0: # Process 1 out of 3 frames
         with frame_lock:
             global_frame = frame.copy()
 
@@ -164,7 +163,7 @@ while True:
     
     emotions = []
     if faces:
-        if choice == "4":
+        if choice == "4": # Combined mode
             for face_pil in faces:
                 votes = []
                 for proc, mod in zip(processors, models):
@@ -177,11 +176,10 @@ while True:
                 print(votes)
                 for i in range(len(votes)):
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
-
                 print(votes)
-                majority_label = get_weighted_majority_vote(votes)
-                normalized = label_map.get(majority_label.lower(), majority_label.lower())
-                emotions.append(normalized)
+
+                majority_label = get_weighted_majority_vote(votes) # Algorithm that decided on how to choose final label
+                emotions.append(majority_label)
         
         else:
             inputs = processor(images=faces, return_tensors="pt").to(device)

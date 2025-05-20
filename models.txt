@@ -69,7 +69,6 @@ Accuracy per emotion:
   disgust: 60.00% (6/10)
 Model 1 (trpakov/vit-face-expression): 78.57% accuracy
 
-
 Evaluated 70 images for model.
 Accuracy per emotion:
   happy: 0.00% (0/10)
@@ -81,9 +80,6 @@ Accuracy per emotion:
   disgust: 100.00% (10/10)
 Model 2 (HardlyHumans/Facial-expression-detection): 67.14% accuracy
 
-
-
-
 Evaluated 70 images for model.
 Accuracy per emotion:
   happy: 90.00% (9/10)
@@ -94,20 +90,6 @@ Accuracy per emotion:
   anger: 90.00% (9/10)
   disgust: 100.00% (10/10)
 Model 3 (motheecreator/vit-Facial-Expression-Recognition): 81.43% accuracy
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
