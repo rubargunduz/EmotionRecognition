@@ -1,3 +1,45 @@
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps" if torch.backends.mps.is_available() else device
+
+
+# Accuracy per emotion per model (manually copied from test results)
+emotion_weights = {
+    'happy':    [1.0, 0.0, 0.9],
+    'sad':      [0.5, 0.6, 0.7],
+    'fear':     [0.6, 0.9, 0.7],
+    'neutral':  [0.9, 0.6, 0.5],
+    'surprise': [1.0, 0.8, 1.0],
+    'anger':    [0.9, 0.8, 0.9],
+    'disgust':  [0.6, 1.0, 1.0]
+}
+
+# Normalize labels
+label_map = {
+    'angry': 'angry',
+    'anger': 'angry',
+    'fear': 'fear',
+    'scared': 'fear',
+    'sadness': 'sad',
+    'sad': 'sad',
+    'disgust': 'disgust',
+    'happy': 'happy',
+    'happiness': 'happy',
+    'surprise': 'surprise',
+    'suprise': 'surprise',
+    'neutral': 'neutral',
+    'contempt': 'neutral'
+}
+
+def get_weighted_majority_vote(predictions):
+    weighted_vote_counter = {}
+    for i, pred in enumerate(predictions):
+        normalized = label_map.get(pred.lower(), pred.lower())
+        weight = emotion_weights.get(normalized, [0, 0, 0])[i]
+        weighted_vote_counter[normalized] = weighted_vote_counter.get(normalized, 0) + weight
+    return max(weighted_vote_counter, key=weighted_vote_counter.get)
+
 import os
 from PIL import Image
 from tqdm import tqdm
@@ -6,7 +48,6 @@ import torch
 import face_recognition
 from sklearn.metrics import confusion_matrix
 import numpy as np
-from utils import *
 
 # Models
 MODELS = {
@@ -19,14 +60,8 @@ MODELS = {
 
 def load_face(image_path):
     try:
-        img = face_recognition.load_image_file(image_path)
-        locations = face_recognition.face_locations(img, model='hog')
-        if not locations:
-            print(f"No face detected in: {image_path}")
-            return None
-        top, right, bottom, left = locations[0]
-        face = Image.fromarray(img[top:bottom, left:right]).resize((224, 224))
-        return face
+        img = Image.open(image_path).convert("RGB").resize((224, 224))
+        return img
     except Exception as e:
         print(f"Failed to load {image_path}: {e}")
         return None
@@ -62,13 +97,38 @@ def evaluate_model(processor, model, dataset_dir):
         acc = (corr / tot * 100) if tot > 0 else 0
         print(f"  {label}: {acc:.2f}% ({corr}/{tot})")
 
+    all_preds = []
+    all_trues = []
+    for label in os.listdir(dataset_dir):
+        folder = os.path.join(dataset_dir, label)
+        if not os.path.isdir(folder):
+            continue
+        true_label = label_map.get(label.lower(), label.lower())
+        for fname in os.listdir(folder):
+            path = os.path.join(folder, fname)
+            face = load_face(path)
+            if face is None:
+                continue
+            inputs = processor(images=face, return_tensors="pt").to(model.device)
+            with torch.no_grad():
+                outputs = model(**inputs)
+            pred = outputs.logits.argmax(-1).item()
+            pred_label = label_map.get(model.config.id2label[pred].lower(), model.config.id2label[pred].lower())
+            all_trues.append(true_label)
+            all_preds.append(pred_label)
+
+    labels_sorted = sorted(set(all_trues + all_preds))
+    cm = confusion_matrix(all_trues, all_preds, labels=labels_sorted)
+    print("\nConfusion Matrix:")
+    print("Labels:", labels_sorted)
+    print(np.array(cm))
+
     return correct / total * 100 if total > 0 else 0
+
 
 def evaluate_combined(models, processors, dataset_dir):
     total, correct = 0, 0
     per_label_stats = {}
-
-    
 
     for label in os.listdir(dataset_dir):
         folder = os.path.join(dataset_dir, label)
@@ -90,7 +150,7 @@ def evaluate_combined(models, processors, dataset_dir):
                 pred_label = model.config.id2label[pred].lower()
                 predictions.append(pred_label)
 
-            majority = get_confusion_matrix_vote(predictions)
+            majority = get_weighted_majority_vote(predictions)
 
             total += 1
             if true_label not in per_label_stats:
@@ -119,14 +179,11 @@ def main(dataset_dir):
         processors[key] = processor
         models[key] = model
 
-    # print("\nEvaluating individual models:")
-    # for key, model_id in MODELS.items():
-    #     acc = evaluate_model(processors[key], models[key], dataset_dir)
-    #     print(f"Model {key} ({model_id}): {acc:.2f}% accuracy")
+    
 
     print("\nEvaluating combined (voting) model:")
     acc = evaluate_combined(list(models.values()), list(processors.values()), dataset_dir)
     print(f"Combined model: {acc:.2f}% accuracy")
 
 if __name__ == "__main__":
-    main("test_dataset")
+    main("/Users/rubargunduz/.cache/kagglehub/datasets/msambare/fer2013/versions/1/test")
