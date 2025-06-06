@@ -7,17 +7,56 @@ import csv
 from transformers import AutoImageProcessor, ViTForImageClassification
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import face_recognition
-from utils import *
 
 # Global model choices and state
 MODEL_CHOICES = {
-    '1': 'trpakov/vit-face-expression',
-    '2': 'HardlyHumans/Facial-expression-detection',
+    '1': 'dima806/facial_emotions_image_detection',
+    '2': 'trpakov/vit-face-expression',
     '3': 'motheecreator/vit-Facial-Expression-Recognition',
     '4': 'combined'
 }
 current_choice = '3'
+label_map = {
+    'angry': 'angry',
+    'anger': 'angry',
+    'fear': 'fear',
+    'scared': 'fear',
+    'sadness': 'sad',
+    'sad': 'sad',
+    'disgust': 'disgust',
+    'happy': 'happy',
+    'happiness': 'happy',
+    'surprise': 'surprise',
+    'suprise': 'surprise',
+    'neutral': 'neutral',
+}
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps" if torch.backends.mps.is_available() else device
+
+class VotingNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(26, 384)
+        self.norm1 = nn.LayerNorm(384)
+        self.fc2 = nn.Linear(384, 192)
+        self.fc3 = nn.Linear(192, 64)
+        self.dropout = nn.Dropout(0.3)
+        self.out = nn.Linear(64, 7)
+
+    def forward(self, x):
+        x = F.relu(self.norm1(self.fc1(x)))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
+        return self.out(x)
+
+voting_model = VotingNet().to(device)
+voting_model.load_state_dict(torch.load("votingnet_model.pt", map_location=device))
+voting_model.eval()
 
 # Launch external live recognition script
 def start_live():
@@ -37,11 +76,13 @@ def load_picture():
         return
     model_name = MODEL_CHOICES[current_choice]
     try:
+        predicted_labels = []
 
         if current_choice == '4':
             model_names = list(MODEL_CHOICES.values())[:3]
             processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
             models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
+            all_emotions = ['happy', 'sad', 'fear', 'neutral', 'surprise', 'angry', 'disgust']
         else:
             processor = AutoImageProcessor.from_pretrained(model_name)
             model = ViTForImageClassification.from_pretrained(model_name).to(device)
@@ -66,20 +107,36 @@ def load_picture():
 
             if current_choice == '4':
                 votes = []
+                features_per_model = []
+                max_confidences = []
                 for proc, mod in zip(processors, models):
                     inputs = proc(images=face, return_tensors="pt").to(device)
                     with torch.no_grad():
                         outputs = mod(**inputs)
-                    pred = outputs.logits.argmax(-1).item()
-                    votes.append(mod.config.id2label[pred])
+                    probs = torch.nn.functional.softmax(outputs.logits, dim=-1).squeeze().cpu().tolist()
+                    features_per_model.append(probs)
+                    max_confidences.append(max(probs))
+                    pred_label = mod.config.id2label[outputs.logits.argmax(-1).item()]
+                    votes.append(pred_label)
 
-                print(votes)
                 for i in range(len(votes)):
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
 
-                print(votes)
-                majority = get_weighted_majority_vote(votes) # Algorithm that decided on how to choose final label
-                label = label_map.get(majority.lower(), majority.lower())
+                agree_3 = int(votes.count(votes[0]) == 3)
+                agree_2 = int(len(set(votes)) == 2)
+
+                input_vector = []
+                for probs in features_per_model:
+                    input_vector.extend(probs)
+                input_vector.extend(max_confidences)
+                input_vector.append(agree_2)
+                input_vector.append(agree_3)
+
+                input_tensor = torch.tensor([input_vector], dtype=torch.float32).to(device)
+                with torch.no_grad():
+                    out = voting_model(input_tensor)
+                final_pred = all_emotions[out.argmax().item()]
+                label = label_map.get(final_pred.lower(), final_pred.lower())
             else:
                 inputs = processor(images=face, return_tensors="pt").to(device)
                 with torch.no_grad():
@@ -88,6 +145,8 @@ def load_picture():
                 label = model.config.id2label[pred]
                 label = label_map.get(label.lower(), label.lower())
 
+            predicted_labels.append(label)
+
             # Draw rectangle and label
             draw.rectangle(((left, top), (right, bottom)), outline="green", width=3)
             text_pos = (left, top - 25 if top - 25 > 0 else top + 5)
@@ -95,7 +154,7 @@ def load_picture():
 
         # Display annotated image
         win = tk.Toplevel(root)
-        win.title(f"Predicted Emotions")
+        win.title(f"Predicted Emotions: {', '.join(predicted_labels)}")
         # Resize for display
         disp = pil_image.copy()
         disp.thumbnail((600, 600))

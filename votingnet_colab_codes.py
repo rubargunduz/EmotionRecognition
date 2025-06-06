@@ -33,6 +33,9 @@ from transformers import AutoImageProcessor, ViTForImageClassification
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from sklearn.metrics import f1_score
+from sklearn.preprocessing import LabelEncoder
+from torch.nn.functional import softmax
 
 
 emotions = ['happy', 'sad', 'fear', 'neutral', 'surprise', 'angry', 'disgust']
@@ -66,8 +69,6 @@ def load_face(image_path):
     except Exception as e:
         print(f"Failed to load {image_path}: {e}")
         return None
-
-from torch.nn.functional import softmax
 
 MODELS = {
     '1': 'dima806/facial_emotions_image_detection',
@@ -240,6 +241,10 @@ def evaluate_model(processor, model, test_samples):
     total, correct = 0, 0
     per_label_stats = {}
 
+    # Track all predictions and true labels
+    all_preds = []
+    all_labels = []
+
     for path, label in test_samples:
         true_label = label_map.get(label.lower(), label.lower())
         face = load_face(path)
@@ -251,6 +256,9 @@ def evaluate_model(processor, model, test_samples):
             outputs = model(**inputs)
         pred = outputs.logits.argmax(-1).item()
         pred_label = label_map.get(model.config.id2label[pred].lower(), model.config.id2label[pred].lower())
+
+        all_preds.append(pred_label)
+        all_labels.append(true_label)
 
         total += 1
         if true_label not in per_label_stats:
@@ -265,11 +273,20 @@ def evaluate_model(processor, model, test_samples):
     for label, (corr, tot) in per_label_stats.items():
         acc = (corr / tot * 100) if tot > 0 else 0
         print(f"  {label}: {acc:.2f}% ({corr}/{tot})")
+
+    # At the end
+    le = LabelEncoder().fit(emotions)
+    f1 = f1_score(le.transform(all_labels), le.transform(all_preds), average='macro')
+    print(f"F1 Score (macro): {f1:.4f}")
     return correct / total * 100 if total > 0 else 0
 
 def evaluate_combined(models, processors, test_samples):
     total, correct = 0, 0
     per_label_stats = {}
+
+    # Track all predictions and true labels
+    all_preds = []
+    all_labels = []
 
     model_voting = VotingNet().to(device)
     model_voting.load_state_dict(torch.load("votingnet_model.pt", map_location=device, weights_only=True))
@@ -313,6 +330,10 @@ def evaluate_combined(models, processors, test_samples):
             output = model_voting(input_tensor)
         final_pred = emotions[output.argmax().item()]
 
+        # In loop after final_pred:
+        all_preds.append(final_pred)
+        all_labels.append(true_label)
+
         total += 1
         if true_label not in per_label_stats:
             per_label_stats[true_label] = [0, 0]
@@ -326,6 +347,11 @@ def evaluate_combined(models, processors, test_samples):
     for label, (corr, tot) in per_label_stats.items():
         acc = (corr / tot * 100) if tot > 0 else 0
         print(f"  {label}: {acc:.2f}% ({corr}/{tot})")
+
+    # At the end
+    le = LabelEncoder().fit(emotions)
+    f1 = f1_score(le.transform(all_labels), le.transform(all_preds), average='macro')
+    print(f"F1 Score (macro): {f1:.4f}")
 
     return correct / total * 100 if total > 0 else 0
 
@@ -345,10 +371,10 @@ def main(dataset_dir):
 
     test_samples = get_last_30_percent(dataset_dir)
 
-    # print("\nEvaluating individual models:")
-    # for key, model_id in MODELS.items():
-    #     acc = evaluate_model(processors[key], models[key], test_samples)
-    #     print(f"Model {key} ({model_id}): {acc:.2f}% accuracy")
+    print("\nEvaluating individual models:")
+    for key, model_id in MODELS.items():
+        acc = evaluate_model(processors[key], models[key], test_samples)
+        print(f"Model {key} ({model_id}): {acc:.2f}% accuracy")
 
     print("\nEvaluating combined (VotingNet) model:")
     acc = evaluate_combined(list(models.values()), list(processors.values()), test_samples)

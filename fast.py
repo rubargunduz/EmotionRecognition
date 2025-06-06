@@ -10,7 +10,8 @@ import time
 import argparse
 import platform
 import subprocess
-from utils import *
+import torch.nn as nn
+import torch.nn.functional as F
 
 if platform.system() == 'Windows':
     import winsound
@@ -44,27 +45,67 @@ if args.model:
     choice = args.model
 else:
     print("Select an emotion detection model:")
-    print("1 - trpakov/vit-face-expression")
-    print("2 - HardlyHumans/Facial-expression-detection")
+    print("1 - dima806/facial_emotions_image_detection")
+    print("2 - trpakov/vit-face-expression")
     print("3 - motheecreator/vit-Facial-Expression-Recognition")
     print("4 - Combined")
     choice = input("Enter model number: ").strip()
 
-all_emotions = ['anger', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
+all_emotions = ['happy', 'sad', 'fear', 'neutral', 'surprise', 'angry', 'disgust']
+label_map = {
+    'angry': 'angry',
+    'anger': 'angry',
+    'fear': 'fear',
+    'scared': 'fear',
+    'sadness': 'sad',
+    'sad': 'sad',
+    'disgust': 'disgust',
+    'happy': 'happy',
+    'happiness': 'happy',
+    'surprise': 'surprise',
+    'suprise': 'surprise',
+    'neutral': 'neutral',
+}
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps" if torch.backends.mps.is_available() else device
+
+
+class VotingNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(26, 384)
+        self.norm1 = nn.LayerNorm(384)
+        self.fc2 = nn.Linear(384, 192)
+        self.fc3 = nn.Linear(192, 64)
+        self.dropout = nn.Dropout(0.3)
+        self.out = nn.Linear(64, 7)
+
+    def forward(self, x):
+        x = F.relu(self.norm1(self.fc1(x)))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
+        return self.out(x)
 
 
 # Load the chosen model and processor
 if choice == "4":
-    model_names = ["trpakov/vit-face-expression", "HardlyHumans/Facial-expression-detection", "motheecreator/vit-Facial-Expression-Recognition"]
+    model_names = ["dima806/facial_emotions_image_detection", "trpakov/vit-face-expression", "motheecreator/vit-Facial-Expression-Recognition"]
     processors = [AutoImageProcessor.from_pretrained(name) for name in model_names]
     models = [ViTForImageClassification.from_pretrained(name).to(device) for name in model_names]
+
+    # Load VotingNet for combined mode
+    voting_model = VotingNet().to(device)
+    voting_model.load_state_dict(torch.load("votingnet_model.pt", map_location=device))
+    voting_model.eval()
 else:
     if choice == "2":
-        model_name = "HardlyHumans/Facial-expression-detection"
+        model_name = "trpakov/vit-face-expression"
     elif choice == "3":
         model_name = "motheecreator/vit-Facial-Expression-Recognition"
     else:
-        model_name = "trpakov/vit-face-expression"  # Default model
+        model_name = "dima806/facial_emotions_image_detection"
 
     processor = AutoImageProcessor.from_pretrained(model_name)
     model = ViTForImageClassification.from_pretrained(model_name).to(device)
@@ -90,7 +131,7 @@ def get_emotion_distribution():
 # Stress Score Calculation
 def calculate_stress_score(emotion_distribution):
     w1, w2, w3, w4, w5 = 1.0, 0.8, 0.7, 0.6, 0.5
-    P_Angry = emotion_distribution.get('anger', 0)
+    P_Angry = emotion_distribution.get('angry', 0)
     P_Fear = emotion_distribution.get('fear', 0)
     P_Sad = emotion_distribution.get('sad', 0)
     P_Disgust = emotion_distribution.get('disgust', 0)
@@ -178,8 +219,31 @@ while True:
                     votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
                 print(votes)
 
-                majority_label = get_weighted_majority_vote(votes) # Algorithm that decided on how to choose final label
-                emotions.append(majority_label)
+                features_per_model = []
+                max_confidences = []
+                for proc, mod in zip(processors, models):
+                    inputs = proc(images=face_pil, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        outputs = mod(**inputs)
+                    probs = torch.nn.functional.softmax(outputs.logits, dim=-1).squeeze().cpu().tolist()
+                    features_per_model.append(probs)
+                    max_confidences.append(max(probs))
+
+                agree_3 = int(votes.count(votes[0]) == 3)
+                agree_2 = int(len(set(votes)) == 2)
+
+                input_vector = []
+                for probs in features_per_model:
+                    input_vector.extend(probs)
+                input_vector.extend(max_confidences)
+                input_vector.append(agree_2)
+                input_vector.append(agree_3)
+
+                input_tensor = torch.tensor([input_vector], dtype=torch.float32).to(device)
+                with torch.no_grad():
+                    out = voting_model(input_tensor)
+                final_pred = all_emotions[out.argmax().item()]
+                emotions.append(final_pred)
         
         else:
             inputs = processor(images=faces, return_tensors="pt").to(device)

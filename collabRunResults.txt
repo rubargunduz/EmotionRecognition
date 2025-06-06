@@ -1,0 +1,8 @@
+Epoch 0: Loss=1.4236, Train Acc=19.70%, Val Acc=26.20%
+Epoch 10: Loss=0.4198, Train Acc=86.23%, Val Acc=86.45%
+Epoch 20: Loss=0.2152, Train Acc=89.19%, Val Acc=88.15%
+Epoch 30: Loss=0.1862, Train Acc=90.84%, Val Acc=90.24%
+Epoch 40: Loss=0.1701, Train Acc=91.61%, Val Acc=90.34%
+Epoch 49: Loss=0.1579, Train Acc=91.81%, Val Acc=90.44%
+Best validation accuracy: 90.44%
+Saved best VotingNet model to 'votingnet_model.pt'

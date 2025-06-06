@@ -1,201 +1,8 @@
-Evaluating individual models:
-
-
-
-Evaluated 7178 images for model.
-Accuracy per emotion:
-  surprise: 80.14% (666/831)
-  fear: 54.30% (556/1024)
-  angry: 65.76% (630/958)
-  neutral: 66.83% (824/1233)
-  sad: 65.04% (811/1247)
-  disgust: 64.86% (72/111)
-  happy: 87.43% (1551/1774)
-
-Confusion Matrix:
-Labels: ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-[[ 630    9   92   22   64  128   13]
- [  22   72    3    3    3    7    1]
- [ 114    6  556   17   71  204   56]
- [  36    0   18 1551   93   44   32]
- [  72    1   62   58  824  205   11]
- [ 108    4  121   25  163  811   15]
- [  20    1   84   28    9   23  666]]
-Model 1 (trpakov/vit-face-expression): 71.19% accuracy
-Evaluated 7178 images for model.
-
-
-
-
-Evaluated 7178 images with model: Thao2202/vit-Facial-Expression-Recognition
-Accuracy per emotion:
-  surprise: 93.02% (773/831)
-  fear: 82.03% (840/1024)
-  angry: 87.37% (837/958)
-  neutral: 90.59% (1117/1233)
-  sad: 86.45% (1078/1247)
-  disgust: 88.29% (98/111)
-  happy: 96.11% (1705/1774)
-
-Confusion Matrix:
-Labels: ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-[[ 837    2   42    9   31   34    3]
- [   5   98    1    2    3    1    1]
- [  27    4  840    8   42   84   19]
- [  15    0   10 1705   25    4   15]
- [  19    0   18   29 1117   46    4]
- [  40    1   35   13   71 1078    9]
- [   7    0   37   10    3    1  773]]
-
-Final Accuracy: 89.83%  
-
-
-
-Evaluated 7178 images with model: Alpiyildo/vit-Facial-Expression-Recognition
-Accuracy per emotion:
-  surprise: 95.31% (792/831)
-  fear: 79.10% (810/1024)
-  angry: 89.87% (861/958)
-  neutral: 93.76% (1156/1233)
-  sad: 88.85% (1108/1247)
-  disgust: 90.99% (101/111)
-  happy: 96.51% (1712/1774)
-
-Confusion Matrix:
-Labels: ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-[[ 861    1   28    7   29   28    4]
- [   6  101    0    1    2    0    1]
- [  44    2  810    8   37   96   27]
- [  12    0    5 1712   30    3   12]
- [  16    1    6   19 1156   35    0]
- [  37    1   29    7   55 1108   10]
- [   8    0   17    8    2    4  792]]
-
-Final Accuracy: 91.11%
-
-
-
-Evaluated 7178 images for model.
-Accuracy per emotion:
-  surprise: 92.54% (769/831)
-  fear: 85.16% (872/1024)
-  angry: 86.33% (827/958)
-  neutral: 92.78% (1144/1233)
-  sad: 87.25% (1088/1247)
-  disgust: 91.89% (102/111)
-  happy: 95.77% (1699/1774)
-
-Confusion Matrix:
-Labels: ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-[[ 827    4   46    7   40   30    4]
- [   3  102    3    0    3    0    0]
- [  28    3  872    5   37   62   17]
- [   9    0   14 1699   32    5   15]
- [  15    2   15   29 1144   28    0]
- [  28    1   45   10   65 1088   10]
- [   9    0   40    8    2    3  769]]
-Model 3 (motheecreator/vit-Facial-Expression-Recognition): 90.57% accuracy
-
-
-
-
-
-Evaluating combined (voting) model:
-Evaluated 7178 images for combined model.
-Accuracy per emotion:
-  surprise: 94.22% (783/831)
-  fear: 81.74% (837/1024)
-  angry: 62.63% (600/958)
-  neutral: 94.08% (1160/1233)
-  sad: 89.33% (1114/1247)
-  disgust: 92.79% (103/111)
-  happy: 96.11% (1705/1774)
-Combined model: 87.80% accurac
-
-Evaluating combined (voting) model:
-Evaluated 7178 images for combined model.
-Accuracy per emotion:
-  surprise: 93.50% (777/831)
-  fear: 83.98% (860/1024)
-  angry: 83.61% (801/958)
-  neutral: 93.51% (1153/1233)
-  sad: 88.61% (1105/1247)
-  disgust: 92.79% (103/111)
-  happy: 96.56% (1713/1774)
-Combined model: 90.72% accuracy
-
-
-
-
-
-
 Evaluating on device: cuda
 
 Loading models...
 
 Evaluating individual models:
-Evaluated 2158 images for model.
-Accuracy per emotion:
-  anger: 65.97% (190/288)
-  disgust: 52.94% (18/34)
-  fear: 51.62% (159/308)
-  happy: 85.18% (454/533)
-  neutral: 66.49% (246/370)
-  sad: 63.73% (239/375)
-  surprise: 81.20% (203/250)
-Model 1 (trpakov/vit-face-expression): 69.93% accuracy
-Evaluated 2158 images for model.
-Accuracy per emotion:
-  anger: 89.93% (259/288)
-  disgust: 88.24% (30/34)
-  fear: 79.55% (245/308)
-  happy: 95.50% (509/533)
-  neutral: 94.05% (348/370)
-  sad: 91.20% (342/375)
-  surprise: 95.60% (239/250)
-Model 2 (Alpiyildo/vit-Facial-Expression-Recognition): 91.38% accuracy
-Evaluated 2158 images for model.
-Accuracy per emotion:
-  anger: 86.46% (249/288)
-  disgust: 91.18% (31/34)
-  fear: 85.71% (264/308)
-  happy: 95.12% (507/533)
-  neutral: 91.89% (340/370)
-  sad: 89.60% (336/375)
-  surprise: 93.20% (233/250)
-Model 3 (motheecreator/vit-Facial-Expression-Recognition): 90.82% accuracy
-
-Evaluating combined (VotingNet) model:
-
-Evaluated 2158 images using VotingNet.
-Accuracy per emotion:
-  anger: 86.81% (250/288)
-  disgust: 0.00% (0/34)
-  fear: 80.52% (248/308)
-  happy: 96.44% (514/533)
-  neutral: 92.16% (341/370)
-  sad: 92.00% (345/375)
-  surprise: 94.00% (235/250)
-Combined model: 89.57% accuracy
-
-
-
-
-
-
-
-
-
-
-
-
-
-Evaluating on device: cuda
-
-Loading models...
-
-Evaluating individual models:
-
 Evaluated 2158 images for model.
 Accuracy per emotion:
   angry: 81.60% (235/288)
@@ -205,7 +12,9 @@ Accuracy per emotion:
   neutral: 83.78% (310/370)
   sad: 82.67% (310/375)
   surprise: 94.00% (235/250)
+F1 Score (macro): 0.8701
 Model 1 (dima806/facial_emotions_image_detection): 86.24% accuracy
+
 
 Evaluated 2158 images for model.
 Accuracy per emotion:
@@ -216,7 +25,9 @@ Accuracy per emotion:
   neutral: 66.49% (246/370)
   sad: 63.73% (239/375)
   surprise: 81.20% (203/250)
+F1 Score (macro): 0.6771
 Model 2 (trpakov/vit-face-expression): 69.93% accuracy
+
 
 Evaluated 2158 images for model.
 Accuracy per emotion:
@@ -227,17 +38,22 @@ Accuracy per emotion:
   neutral: 91.89% (340/370)
   sad: 89.60% (336/375)
   surprise: 93.20% (233/250)
+F1 Score (macro): 0.9105
 Model 3 (motheecreator/vit-Facial-Expression-Recognition): 90.82% accuracy
+
+
+
 
 Evaluating combined (VotingNet) model:
 
 Evaluated 2158 images using VotingNet.
 Accuracy per emotion:
-  angry: 88.19% (254/288)
-  disgust: 94.12% (32/34)
-  fear: 88.31% (272/308)
-  happy: 94.75% (505/533)
-  neutral: 91.08% (337/370)
-  sad: 90.13% (338/375)
-  surprise: 94.80% (237/250)
+  angry: 88.89% (256/288)
+  disgust: 97.06% (33/34)
+  fear: 89.29% (275/308)
+  happy: 93.81% (500/533)
+  neutral: 90.54% (335/370)
+  sad: 90.67% (340/375)
+  surprise: 94.40% (236/250)
+F1 Score (macro): 0.9222
 Combined model: 91.52% accuracy
