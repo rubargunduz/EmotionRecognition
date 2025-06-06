@@ -18,7 +18,7 @@ MODEL_NAMES = {
     '3': 'motheecreator/vit-Facial-Expression-Recognition',
 }
 
-DATASET_DIR = "/kaggle/input/fer2013/train"
+DATASET_DIR = "fer2013/test"
 
 label_map = {
     'angry': 'angry',
@@ -58,17 +58,17 @@ class FERDataset(Dataset):
         inputs["labels"] = torch.tensor(label_id)
         return inputs
 
-def load_data(dataset_dir, split=0.1):
+def load_data(dataset_dir):
     image_label_pairs = []
     for label in sorted(os.listdir(dataset_dir)):
         folder = os.path.join(dataset_dir, label)
         if not os.path.isdir(folder):
             continue
-        for fname in os.listdir(folder):
+        image_paths = sorted(os.listdir(folder))
+        split_idx = int(len(image_paths) * 0.15)
+        for fname in image_paths[:split_idx]:
             image_label_pairs.append((os.path.join(folder, fname), label))
-
-    train_data, val_data = train_test_split(image_label_pairs, test_size=split, stratify=[x[1] for x in image_label_pairs])
-    return train_data, val_data
+    return image_label_pairs, []
 
 def collate_fn(batch):
     input_ids = [item['pixel_values'] for item in batch]
@@ -86,18 +86,16 @@ def fine_tune(model_id, output_dir):
     train_data, val_data = load_data(DATASET_DIR)
 
     train_dataset = FERDataset(train_data, processor)
-    val_dataset = FERDataset(val_data, processor)
 
     training_args = TrainingArguments(
         output_dir=output_dir,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        evaluation_strategy="no",
+        save_strategy="no",
         num_train_epochs=3,
         logging_dir=os.path.join(output_dir, "logs"),
         learning_rate=5e-5,
-        load_best_model_at_end=True,
         save_total_limit=1
     )
 
@@ -105,7 +103,6 @@ def fine_tune(model_id, output_dir):
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset,
         data_collator=collate_fn,
         tokenizer=processor
     )
