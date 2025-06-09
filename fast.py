@@ -116,7 +116,7 @@ global_frame = None    # Global frame for the detection thread to process
 frame_lock = threading.Lock()  # Lock to safely update/access global_frame
 
 # Initialize webcam
-video_capture = cv2.VideoCapture(0)
+video_capture = cv2.VideoCapture(1) # Webcam input device, 0 for internal
 frame_count = 0
 
 # Emotion history (to track the last 100 detected emotions)
