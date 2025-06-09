@@ -43,7 +43,6 @@ Model 3 (motheecreator/vit-Facial-Expression-Recognition): 90.82% accuracy
 
 
 
-
 Evaluating combined (VotingNet) model:
 
 Evaluated 2158 images using VotingNet.
@@ -57,3 +56,9 @@ Accuracy per emotion:
   surprise: 94.40% (236/250)
 F1 Score (macro): 0.9222
 Combined model: 91.52% accuracy
+
+
+
+
+
+
