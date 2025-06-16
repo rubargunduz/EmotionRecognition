@@ -34,7 +34,7 @@ else:
 # set your alert threshold (in %)
 TIREDNESS_ALERT_THRESHOLD = 75.0
 # set your stress alert threshold (in %)
-STRESS_ALERT_THRESHOLD = 75.0
+STRESS_ALERT_THRESHOLD = 65.0
 
 
 parser = argparse.ArgumentParser()
@@ -160,6 +160,7 @@ def process_frame():
     while True:
         with frame_lock:
             if global_frame is None:
+                time.sleep(0.01)
                 continue
             frame_copy = global_frame.copy()
         small_frame = cv2.resize(frame_copy, (0, 0), fx=0.5, fy=0.5)
@@ -179,6 +180,7 @@ with open(log_file, 'a') as f:
 
 # Record last logging time (initialize to current time)
 last_log_time = time.time()
+last_sound_time = 0
 
 # Main loop
 while True:
@@ -207,31 +209,29 @@ while True:
         if choice == "4": # Combined mode
             for face_pil in faces:
                 votes = []
-                for proc, mod in zip(processors, models):
-                    inputs = proc(images=face_pil, return_tensors="pt").to(device)
-                    with torch.no_grad():
-                        outputs = mod(**inputs)
-                    pred = outputs.logits.argmax(-1).item()
-                    votes.append(mod.config.id2label[pred])
-
-                print(votes)
-                for i in range(len(votes)):
-                    votes[i] = label_map.get(votes[i].lower(), votes[i].lower())
-                print(votes)
-
                 features_per_model = []
                 max_confidences = []
+
                 for proc, mod in zip(processors, models):
                     inputs = proc(images=face_pil, return_tensors="pt").to(device)
                     with torch.no_grad():
                         outputs = mod(**inputs)
-                    probs = torch.nn.functional.softmax(outputs.logits, dim=-1).squeeze().cpu().tolist()
+
+                    logits = outputs.logits.squeeze()
+                    probs = torch.softmax(logits, dim=-1).cpu().tolist()
+
+                    pred_idx = logits.argmax().item()
+                    pred_label = mod.config.id2label[pred_idx].lower()
+
+                    votes.append(label_map.get(pred_label, pred_label))
                     features_per_model.append(probs)
                     max_confidences.append(max(probs))
 
+                # Agreement logic
                 agree_3 = int(votes.count(votes[0]) == 3)
                 agree_2 = int(len(set(votes)) == 2)
 
+                # Build input vector: 21 probs + 3 confidences + 2 agreement flags = 26
                 input_vector = []
                 for probs in features_per_model:
                     input_vector.extend(probs)
@@ -243,6 +243,7 @@ while True:
                 with torch.no_grad():
                     out = voting_model(input_tensor)
                 final_pred = all_emotions[out.argmax().item()]
+
                 emotions.append(final_pred)
         
         else:
@@ -276,6 +277,7 @@ while True:
     stress_score = calculate_stress_score(distribution)
     tiredness_score = calculate_tiredness_score(distribution)
 
+    
     if tiredness_score > TIREDNESS_ALERT_THRESHOLD:
     # draw a big warning on the frame
         cv2.putText(frame,
@@ -284,7 +286,9 @@ while True:
                     cv2.FONT_HERSHEY_DUPLEX,
                     0.9, (0, 0, 255), 2)
         # fire the alert sound in its own thread so it doesn't block your frame loop
-        threading.Thread(target=sound_alert, daemon=True).start()
+        if time.time() - last_sound_time > 1:
+            threading.Thread(target=sound_alert, daemon=True).start()
+            last_sound_time = time.time()
     
     if stress_score > STRESS_ALERT_THRESHOLD:
         # overlay a red warning
@@ -294,7 +298,9 @@ while True:
                     cv2.FONT_HERSHEY_DUPLEX,
                     0.8, (0, 0, 255), 2)
         # play alert sound without blocking
-        threading.Thread(target=sound_alert, daemon=True).start()
+        if time.time() - last_sound_time > 1:
+            threading.Thread(target=sound_alert, daemon=True).start()
+            last_sound_time = time.time()
 
     
     cv2.putText(frame, f"Stress: {stress_score:.2f}", (10, y_offset + 40),
@@ -312,6 +318,10 @@ while True:
     
     cv2.imshow('Optimized Face Emotion Recognition', frame)
     
+    # Periodically clear unused CUDA cache to avoid slowdowns
+    if device == "cuda" and frame_count % 60 == 0:
+        torch.cuda.empty_cache()
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
